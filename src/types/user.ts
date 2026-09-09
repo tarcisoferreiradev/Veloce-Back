@@ -6,9 +6,9 @@ export interface RegisterDTO {
   name: string;
   email: string;
   password: string;
-  weight: number; // Fornecido na unidade informada pelo cliente
-  height: number; // cm ou inches
-  birthDate: string; // ISO 8601 YYYY-MM-DD
+  weight: number;
+  height: number;
+  birthDate: string;
   biologicalSex: BiologicalSex;
   unitSystem?: UnitSystem;
   fitnessLevel?: FitnessLevel;

@@ -24,13 +24,11 @@ export const authenticateToken = (
   }
 
   const secret = process.env.JWT_SECRET || 'secret_fallback_key';
-
   jwt.verify(token, secret, (err: VerifyErrors | null, decoded: string | JwtPayload | undefined): void => {
     if (err || !decoded || typeof decoded === 'string') {
       res.status(403).json({ error: 'Token inválido ou expirado.' });
       return;
     }
-
     req.user = decoded as AuthenticatedUser;
     next();
   });

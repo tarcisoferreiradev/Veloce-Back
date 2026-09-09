@@ -29,7 +29,7 @@ app.get('/health', async (_req: Request, res: Response): Promise<void> => {
 
 app.use('/auth', authRoutes);
 
-// Interceptador global para tratamento centralizado de exceções não tratadas
+// Interceptador global para tratamento centralizado de exceções
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction): void => {
   res.status(500).json({ error: 'Erro interno do servidor.' });
 });
@@ -38,7 +38,6 @@ const server = app.listen(PORT, '0.0.0.0', (): void => {
   console.log(`Server listening on port ${PORT}`);
 });
 
-// Finalização graciosa de conexões e encerramento de pool sob sinais do OS
 const handleGracefulShutdown = async (signal: string): Promise<void> => {
   server.close(async () => {
     await pool.end();

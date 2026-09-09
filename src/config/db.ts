@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const isProduction: boolean = process.env.NODE_ENV === 'production';
-
 const poolConfig: PoolConfig = {
   connectionString: process.env.DATABASE_URL,
   ssl: isProduction || Boolean(process.env.DATABASE_URL?.includes('supabase.co'))
