@@ -1,11 +1,13 @@
 ﻿import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import jwt, { VerifyErrors, JwtPayload } from 'jsonwebtoken';
+
+export interface AuthenticatedUser {
+  userId: string;
+  email: string;
+}
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    userId: string;
-    email: string;
-  };
+  user?: AuthenticatedUser;
 }
 
 export const authenticateToken = (
@@ -23,13 +25,13 @@ export const authenticateToken = (
 
   const secret = process.env.JWT_SECRET || 'secret_fallback_key';
 
-  jwt.verify(token, secret, (err, decoded) => {
-    if (err) {
+  jwt.verify(token, secret, (err: VerifyErrors | null, decoded: string | JwtPayload | undefined): void => {
+    if (err || !decoded || typeof decoded === 'string') {
       res.status(403).json({ error: 'Token inválido ou expirado.' });
       return;
     }
 
-    req.user = decoded as { userId: string; email: string };
+    req.user = decoded as AuthenticatedUser;
     next();
   });
 };
