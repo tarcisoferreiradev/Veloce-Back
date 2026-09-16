@@ -13,8 +13,7 @@ interface AuthResponseDTO {
     id: string;
     name: string;
     email: string;
-    profile: any;
-  };
+  }
 }
 
 export class GoogleLoginUseCase {
@@ -29,59 +28,60 @@ export class GoogleLoginUseCase {
       throw new AuthenticationError('Google ID Token é obrigatório.', 400);
     }
 
-    let ticket;
     try {
-      ticket = await this.googleClient.verifyIdToken({
+      const ticket = await this.googleClient.verifyIdToken({
         idToken,
         audience: process.env.GOOGLE_CLIENT_ID,
       });
-    } catch {
-      throw new AuthenticationError('Token do Google inválido ou expirado.', 401);
+
+      const payload = ticket.getPayload();
+      
+      if (!payload || !payload.email) {
+        throw new AuthenticationError('Token do Google inválido ou sem e-mail associado.', 401);
+      }
+
+      const { email, name } = payload;
+
+      const userQuery = await pool.query(
+        'SELECT * FROM users WHERE email = $1 LIMIT 1',
+        [email]
+      );
+
+      let user;
+
+      if (userQuery.rows.length > 0) {
+        user = userQuery.rows[0];
+      } else {
+        const insertQuery = await pool.query(
+          `INSERT INTO users (name, email, password_hash, created_at, updated_at) 
+           VALUES ($1, $2, NULL, NOW(), NOW()) 
+           RETURNING *`,
+          [name || 'Usuário Google', email]
+        );
+        user = insertQuery.rows[0];
+      }
+
+      const jwtSecret = process.env.JWT_SECRET || 'fallback_secret';
+      const token = jwt.sign(
+        { id: user.id, email: user.email },
+        jwtSecret,
+        { expiresIn: '7d' }
+      );
+
+      return {
+        token,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      };
+
+    } catch (error: any) {
+      if (error instanceof AuthenticationError) {
+        throw error;
+      }
+      throw new AuthenticationError(`Falha na autenticação com o Google: ${error.message}`, 401);
     }
-
-    const payload = ticket.getPayload();
-    if (!payload || !payload.email) {
-      throw new AuthenticationError('Falha na autenticação do Google: e-mail ausente.', 401);
-    }
-
-    const { email, name, sub: googleId } = payload;
-
-    const query = `
-      INSERT INTO users (email, name, google_id)
-      VALUES ($1, $2, $3)
-      ON CONFLICT (email) 
-      DO UPDATE SET google_id = COALESCE(users.google_id, EXCLUDED.google_id)
-      RETURNING id, email, name;
-    `;
-
-    const result = await pool.query(query, [email, name || 'Usuário Google', googleId]);
-    const user = result.rows[0];
-
-    const profileResult = await pool.query(
-      `SELECT weight_kg, height_cm, birth_date, biological_sex, unit_system FROM user_profiles WHERE user_id = $1`,
-      [user.id]
-    );
-    const profile = profileResult.rows[0] || null;
-
-    const secret = process.env.JWT_SECRET || 'secret_fallback_key';
-    const token = jwt.sign({ userId: user.id, email: user.email }, secret, {
-      expiresIn: '7d',
-    });
-
-    return {
-      token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        profile: profile ? {
-          weightKg: Number(profile.weight_kg),
-          heightCm: Number(profile.height_cm),
-          birthDate: profile.birth_date,
-          biologicalSex: profile.biological_sex,
-          unitSystem: profile.unit_system,
-        } : null,
-      },
-    };
   }
 }
